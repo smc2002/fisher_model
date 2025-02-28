@@ -1,0 +1,194 @@
+---
+title: "EBS-231-Midterm"
+author: "Stephanie Caddell"
+date: "2025-02-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(igraph)
+library(socmod)
+library(tibble)
+library(dplyr)
+library(ggplot2)
+library(ggforce)
+library(forcats)
+library(netrankr)
+library(magrittr)ß
+```
+
+```{r}
+bottom_up <- make_graph(~G-1-G-2-1-3-4-2-1-G-5-6-7-5-7-9-8-9-3-4-8-7-2-5)
+plot(bottom_up)
+
+top_down <- make_graph(~G-1-2-3-1-2-4-5-6-4-6-7-9-8-4-9-6-8-7)
+plot(top_down)
+
+```
+
+
+```{r}
+library(socmod)
+library(purrr)
+library(assertthat)
+
+abm <- AgentBasedModel$new(network = bottom_up)
+
+gov_agent <- abm$get_agent("G")
+fisher_1 <- abm$get_agent("1")
+fisher_2 <- abm$get_agent("2")
+fisher_3 <- abm$get_agent("3")
+fisher_4 <- abm$get_agent("4")
+fisher_5 <- abm$get_agent("5")
+fisher_6 <- abm$get_agent("6")
+fisher_7 <- abm$get_agent("7")
+fisher_8 <- abm$get_agent("8")
+fisher_9 <- abm$get_agent("9")
+
+adaptive_agents <- c("1", "2", "3", "4", "5", "6", "7", "8", "9")
+
+for (agent_name in adaptive_agents){
+  agent <- abm$get_agent(agent_name)
+  agent$curr_behavior <- "Adaptive"
+  agent$curr_fitness <- 1.5
+}
+
+
+maladaptive_agents <- c("G")
+for (agent_name in maladaptive_agents){
+  agent <- abm$get_agent(agent_name)
+  agent$curr_behavior <- "Maladaptive"
+  agent$curr_fitness <- 1
+}
+
+
+result1 <- run(abm, 50, success_bias_select_teacher, success_bias_interact, iterate_learning_model)
+ggplot(result1$output, aes(x=t, y=A)) + geom_line() + theme_minimal() + labs(title = "Rate of adoption of adaptive behavior with bottom-up governance model")
+
+
+```
+
+
+```{r}
+library(socmod)
+make_fisher_abm <- function(){
+  
+abm2 <- AgentBasedModel$new(network = top_down)
+
+
+gov_agent <- abm$get_agent("G")
+fisher_1 <- abm$get_agent("1")
+fisher_2 <- abm$get_agent("2")
+fisher_3 <- abm$get_agent("3")
+fisher_4 <- abm$get_agent("4")
+fisher_5 <- abm$get_agent("5")
+fisher_6 <- abm$get_agent("6")
+fisher_7 <- abm$get_agent("7")
+fisher_8 <- abm$get_agent("8")
+fisher_9 <- abm$get_agent("9")
+
+adaptive_agents <- c("1", "3", "G")
+for (agent_name in adaptive_agents){
+  agent <- abm2$get_agent(agent_name)
+  agent$curr_behavior <- "Adaptive"
+  agent$curr_fitness <- 1.5
+  
+}
+
+
+
+maladaptive_agents <- c("2", "4", "5", "6", "7", "8", "9")
+for (agent_name in maladaptive_agents){
+  agent <- abm2$get_agent(agent_name)
+  agent$curr_behavior <- "Maladaptive"
+  agent$curr_fitness <- 1
+  
+}
+return(abm2)
+}
+abm2 <- make_fisher_abm()
+
+
+
+print(abm2$agents)
+
+result2 <- run(abm2, 50, success_bias_select_teacher, success_bias_interact, iterate_learning_model)
+
+ggplot(result2$output, aes(x=t, y=A)) + geom_line() + theme_minimal() + labs(title = "Rate of adoption of adaptive behavior with top-down governance model")
+
+##NOTE: Every time this model runs it has a different outcome. Sometimes the A reaches equilibrium and sometimes it doesn't. 
+
+```
+
+```{r}
+## Both graphs together:
+res1out <- result1$output
+res2out <- result2$output
+
+res1out$condition <- "Bottom Up"
+res2out$condition <- "Top Down"
+
+result_all <- rbind(res1out, res2out)
+
+ggplot(result_all, aes(x=t, y=A, color = condition)) + geom_line() + theme_minimal() + labs(title = "Rate of adoption of adaptive behavior with both models")
+```
+
+```{r}
+n_trials <- 5
+one_trial_success <- function(n_steps = 50) {
+  abm <- make_fisher_abm()
+  A_T <- run(
+    abm, n_steps, frequency_bias_select_teacher, 
+    frequency_bias_interact, iterate_learning_model
+  )$output$A[n_steps]
+  
+  return (ifelse(A_T == 10, 1, 0))
+}
+
+n_success <- sum(purrr::map_vec(1:n_trials, \(.) {one_trial_success()}));
+
+success_rate <- n_success / n_trials
+print(paste("Success rate:", success_rate))
+```
+
+```{r}
+n_trials <- 10
+one_trial_success <- function(n_steps = 50) {
+  abm <- make_fisher_abm()
+  A_T <- run(
+    abm, n_steps, frequency_bias_select_teacher, 
+    frequency_bias_interact, iterate_learning_model
+  )$output$A[n_steps]
+  
+  return (ifelse(A_T == 10, 1, 0))
+}
+
+n_success <- sum(purrr::map_vec(1:n_trials, \(.) {one_trial_success()}));
+
+success_rate <- n_success / n_trials
+print(paste("Success rate:", success_rate))
+```
+
+```{r}
+n_trials <- 500
+one_trial_success <- function(n_steps = 50) {
+  abm <- make_fisher_abm()
+  A_T <- run(
+    abm, n_steps, frequency_bias_select_teacher, 
+    frequency_bias_interact, iterate_learning_model
+  )$output$A[n_steps]
+  
+  return (ifelse(A_T == 10, 1, 0))
+}
+
+n_success <- sum(purrr::map_vec(1:n_trials, \(.) {one_trial_success()}));
+
+success_rate <- n_success / n_trials
+print(paste("Success rate:", success_rate))
+```
+
+
